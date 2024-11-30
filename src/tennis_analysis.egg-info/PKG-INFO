@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: tennis-analysis
+Version: 0.1.0
+Summary: Framework para análisis de videos de tenis
+Author: Tu Nombre
+Author-email: tu@email.com
+Keywords: tennis,computer-vision,tracking,YOLO,sports-analysis
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+
+# projectCV

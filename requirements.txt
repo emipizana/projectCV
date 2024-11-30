@@ -1,0 +1,29 @@
+# Dependencias básicas
+numpy
+opencv-python
+Pillow
+
+# Descarga de videos
+yt-dlp
+ffmpeg-python
+
+# Para instalar PyTorch en Mac M1/M2, usar:
+# pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
+
+# Deep Learning
+ultralytics
+
+# Procesamiento y análisis de datos
+scipy
+pandas
+matplotlib
+seaborn
+
+# Utilidades
+tqdm
+PyYAML
+
+# Opcional: Para desarrollo
+pytest
+black
+isort

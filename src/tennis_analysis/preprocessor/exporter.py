@@ -1,0 +1,126 @@
+"""
+Módulo para exportar resultados del preprocesamiento.
+"""
+
+import json
+from pathlib import Path
+from datetime import datetime
+from typing import List, Dict, Any
+from tqdm import tqdm
+
+from .data_structures import TennisPoint
+from .video_loader import VideoLoader
+from .point_extractor import PointExtractor
+
+class TennisExporter:
+    """Maneja la exportación de puntos y metadatos."""
+    
+    def __init__(self, video_loader: VideoLoader, output_dir: str):
+        """
+        Args:
+            video_loader: Instancia de VideoLoader
+            output_dir: Directorio base para la exportación
+        """
+        self.loader = video_loader
+        self.output_dir = Path(output_dir)
+        self.extractor = PointExtractor(video_loader)
+        
+    def export_points(
+        self,
+        points: List[TennisPoint],
+        start_index: int = 1,
+        add_overlay: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Exporta los puntos detectados y genera metadatos.
+        
+        Args:
+            points: Lista de puntos a exportar
+            start_index: Índice inicial para la numeración
+            add_overlay: Si se debe añadir información superpuesta
+            
+        Returns:
+            Diccionario con resumen de la exportación
+        """
+        # Crear directorios
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        videos_dir = self.output_dir / "points"
+        videos_dir.mkdir(exist_ok=True)
+        
+        # Preparar metadatos
+        metadata = self._prepare_metadata(points)
+        successful_exports = 0
+        failed_exports = []
+        
+        # Exportar cada punto
+        print("\nExportando puntos...")
+        for i, point in enumerate(tqdm(points), start=start_index):
+            point_data = self._create_point_metadata(point, i)
+            output_path = videos_dir / f"point_{i:03d}.mp4"
+            
+            if self.extractor.extract_point(
+                point,
+                str(output_path),
+                add_overlay,
+                i
+            ):
+                successful_exports += 1
+                point_data["export_status"] = "success"
+                point_data["video_path"] = str(output_path.relative_to(self.output_dir))
+            else:
+                failed_exports.append(i)
+                point_data["export_status"] = "failed"
+            
+            metadata["points"].append(point_data)
+        
+        # Guardar metadatos
+        self._save_metadata(metadata)
+        
+        # Generar y retornar resumen
+        return self._create_summary(
+            total_points=len(points),
+            successful=successful_exports,
+            failed=failed_exports
+        )
+    
+    def _prepare_metadata(self, points: List[TennisPoint]) -> Dict[str, Any]:
+        """Prepara la estructura base de metadatos."""
+        return {
+            "export_info": {
+                "date": datetime.now().isoformat(),
+                "total_frames": self.loader.frame_count,
+                "video_fps": self.loader.fps,
+                "total_points": len(points),
+                "video_resolution": f"{self.loader.width}x{self.loader.height}"
+            },
+            "points": []
+        }
+    
+    def _create_point_metadata(self, point: TennisPoint, index: int) -> Dict[str, Any]:
+        """Crea metadatos para un punto individual."""
+        return {
+            "point_id": index,
+            **point.to_dict(),
+            "video_file": f"point_{index:03d}.mp4"
+        }
+    
+    def _save_metadata(self, metadata: Dict[str, Any]):
+        """Guarda los metadatos en un archivo JSON."""
+        metadata_path = self.output_dir / "points_metadata.json"
+        with open(metadata_path, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, indent=4)
+    
+    def _create_summary(
+        self,
+        total_points: int,
+        successful: int,
+        failed: List[int]
+    ) -> Dict[str, Any]:
+        """Crea un resumen de la exportación."""
+        return {
+            "total_points": total_points,
+            "successful_exports": successful,
+            "failed_exports": failed,
+            "output_directory": str(self.output_dir),
+            "metadata_path": str(self.output_dir / "points_metadata.json")
+        }
