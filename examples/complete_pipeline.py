@@ -47,19 +47,23 @@ def process_complete(
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # 1. Descargar video
-    print("\n1. Descargando video...")
-    downloader = VideoDownloader()
-    video_path = output_dir / "full_match.mp4"
-    
-    if start_time and duration:
-        downloader.download_segment(
-            url=video_url,
-            start_time=start_time,
-            duration=duration,
-            output_path=str(video_path)
-        )
+    if video_url is not None:
+        print("\n1. Descargando video...")
+        downloader = VideoDownloader()
+        video_path = output_dir / "full_match.mp4"
+        
+        if start_time and duration:
+            downloader.download_segment(
+                url=video_url,
+                start_time=start_time,
+                duration=duration,
+                output_path=str(video_path)
+            )
+        else:
+            downloader.download_video(url=video_url, output_path=str(video_path))
     else:
-        downloader.download_video(url=video_url, output_path=str(video_path))
+        print("\n1. Obtaining the video...")
+        video_path = Path('./examples/pre_saved_video/match_hardcourt.mp4')
     
     # 2. Preprocesar y segmentar en puntos
     print("\n2. Preprocesando video...")

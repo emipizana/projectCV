@@ -11,8 +11,8 @@ from complete_pipeline import process_complete
 
 # Usar el proceso
 summary = process_complete(
-    video_url="https://www.youtube.com/watch?v=tu_video",
-    output_dir="output",
+    video_url=None, #"https://www.youtube.com/watch?v=6I06-ITW88k"
+    output_dir="examples/output",
     model_players_path="models/players/best.pt",
     model_ball_path="models/ball/best.pt",
     device="mps",
