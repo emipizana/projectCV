@@ -10,10 +10,7 @@ import sys
 from pathlib import Path
 
 # Obtener el path raíz del proyecto
-print("hola")
-print(Path(__file__))
 project_root = Path(__file__).parent.parent
-print(str(project_root / 'src'))
 sys.path.append(str(project_root / 'src'))
 
 from tennis_analysis.downloader import VideoDownloader
@@ -24,8 +21,6 @@ from tennis_analysis.preprocessor import (
     TennisExporter
 )
 from tennis_analysis.postprocessing import VideoProcessor
-
-# ... resto del código ...
 
 def process_complete(
     video_url: str,

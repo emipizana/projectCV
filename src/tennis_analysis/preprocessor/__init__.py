@@ -2,8 +2,8 @@
 Módulo de preprocesamiento de videos.
 """
 
-from .data_structures import TennisPoint
 from .video_loader import VideoLoader
+from .data_structures import TennisPoint
 from .scene_detector import SceneDetector
 from .point_identifier import PointIdentifier
 from .point_extractor import PointExtractor

@@ -1,4 +1,0 @@
-[console_scripts]
-tennis-download = tennis_analysis.examples.download_video:main
-tennis-preprocess = tennis_analysis.examples.preprocess_match:main
-tennis-process = tennis_analysis.examples.process_match:main

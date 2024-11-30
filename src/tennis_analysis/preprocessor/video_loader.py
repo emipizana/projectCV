@@ -5,7 +5,7 @@ Módulo para cargar y manejar videos.
 import cv2
 import numpy as np
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Optional
 
 class VideoLoader:
     """Clase para cargar y manejar videos."""
