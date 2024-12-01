@@ -5,7 +5,7 @@ Módulo para cargar y manejar videos.
 import cv2
 import numpy as np
 from pathlib import Path
-from typing import Optional
+from typing import Tuple, Optional
 
 class VideoLoader:
     """Clase para cargar y manejar videos."""
@@ -21,13 +21,13 @@ class VideoLoader:
             FileNotFoundError: Si el archivo no existe
             ValueError: Si el video no se puede abrir
         """
-        video_path = Path(video_path)
-        if not video_path.exists():
-            raise FileNotFoundError(f"Video no encontrado: {video_path}")
+        self.video_path = Path(video_path)
+        if not self.video_path.exists():
+            raise FileNotFoundError(f"Video no encontrado: {self.video_path}")
             
-        self.cap = cv2.VideoCapture(str(video_path))
+        self.cap = cv2.VideoCapture(str(self.video_path))
         if not self.cap.isOpened():
-            raise ValueError(f"No se pudo abrir el video: {video_path}")
+            raise ValueError(f"No se pudo abrir el video: {self.video_path}")
             
         # Propiedades del video
         self.fps = self.cap.get(cv2.CAP_PROP_FPS)

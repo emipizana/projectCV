@@ -4,7 +4,7 @@ Módulo para detectar cambios de escena en videos de tenis.
 
 import cv2
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Callable
 from .video_loader import VideoLoader
 
 class SceneDetector:
@@ -17,15 +17,6 @@ class SceneDetector:
         resize_width: int = 320,
         resize_height: int = 180
     ):
-        """
-        Inicializa el detector de escenas.
-        
-        Args:
-            video_loader: Instancia de VideoLoader
-            scene_threshold: Umbral para detectar cambios
-            resize_width: Ancho para redimensionar frames
-            resize_height: Alto para redimensionar frames
-        """
         self.loader = video_loader
         self.scene_threshold = scene_threshold
         self.resize_dims = (resize_width, resize_height)
@@ -34,18 +25,11 @@ class SceneDetector:
         self,
         start_frame: int = 0,
         end_frame: Optional[int] = None,
-        example_frame: Optional[np.ndarray] = None
+        example_frame: Optional[np.ndarray] = None,
+        progress_callback: Optional[Callable[[int, int], None]] = None
     ) -> Tuple[List[int], List[float]]:
         """
-        Detecta cambios de escena en el video.
-        
-        Args:
-            start_frame: Frame inicial para procesar
-            end_frame: Frame final (None para procesar hasta el final)
-            example_frame: Frame de ejemplo para comparación
-            
-        Returns:
-            Tuple con lista de frames donde hay cambios y sus puntuaciones
+        Detecta cambios de escena en el video usando lectura secuencial.
         """
         scene_changes = []
         change_scores = []
@@ -54,9 +38,15 @@ class SceneDetector:
         if end_frame is None:
             end_frame = self.loader.frame_count
             
-        # Leer primer frame
-        prev_frame = self.loader.read_frame(start_frame)
-        if prev_frame is None:
+        total_frames = end_frame - start_frame
+        UPDATE_INTERVAL = max(1, total_frames // 1000)
+        
+        # Posicionar el video en el frame inicial
+        self.loader.cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+        
+        # Leer el primer frame
+        ret, prev_frame = self.loader.cap.read()
+        if not ret:
             return [], []
             
         # Redimensionar frame previo
@@ -64,14 +54,17 @@ class SceneDetector:
             small_prev = cv2.resize(example_frame, self.resize_dims)
         else:
             small_prev = cv2.resize(prev_frame, self.resize_dims)
-            
-        # Procesar frames
-        for frame_num in range(start_frame + 1, end_frame):
-            # Leer y procesar frame actual
-            frame = self.loader.read_frame(frame_num)
-            if frame is None:
+        
+        current_frame = start_frame + 1
+        
+        # Procesar frames secuencialmente
+        while current_frame < end_frame:
+            # Leer siguiente frame
+            ret, frame = self.loader.cap.read()
+            if not ret:
                 break
                 
+            # Procesar frame actual
             small_frame = cv2.resize(frame, self.resize_dims)
             
             # Calcular diferencia
@@ -81,15 +74,24 @@ class SceneDetector:
             
             # Detectar cambio de escena
             if diff_score > self.scene_threshold:
-                scene_changes.append(frame_num)
+                scene_changes.append(current_frame)
             
             # Actualizar frame previo
             if example_frame is None:
-                small_prev = small_frame
+                small_prev = small_frame.copy()
                 
             # Reportar progreso
-            if (frame_num - start_frame) % 100 == 0:
-                print(f"Procesando frame {frame_num}/{end_frame}")
+            if (current_frame - start_frame) % UPDATE_INTERVAL == 0:
+                if progress_callback:
+                    progress_callback(current_frame - start_frame, total_frames)
+                else:
+                    print(f"Procesando frame {current_frame}/{end_frame}")
+            
+            current_frame += 1
+                
+        # Asegurar que reportamos 100% al final
+        if progress_callback:
+            progress_callback(total_frames, total_frames)
                 
         return scene_changes, change_scores
     

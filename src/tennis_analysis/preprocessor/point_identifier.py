@@ -68,11 +68,11 @@ class PointIdentifier:
                 point = TennisPoint(
                     start_frame=start_frame,
                     end_frame=end_frame,
-                    start_time=start_frame / self.loader.fps,
-                    end_time=end_frame / self.loader.fps,
-                    score_shown=score_shown,
-                    confidence=confidence,
-                    scene_change_score=change_scores[score_index]
+                    start_time=round(start_frame / self.loader.fps, 4),
+                    end_time=round(end_frame / self.loader.fps, 4),
+                    score_shown=str(score_shown),
+                    confidence=round(confidence, 4),
+                    scene_change_score=round(change_scores[score_index], 4)
                 )
                 points.append(point)
         

@@ -5,7 +5,7 @@ Módulo para exportar resultados del preprocesamiento.
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Callable
 from tqdm import tqdm
 
 from .data_structures import TennisPoint
@@ -29,7 +29,9 @@ class TennisExporter:
         self,
         points: List[TennisPoint],
         start_index: int = 1,
-        add_overlay: bool = True
+        add_overlay: bool = True,
+        progress_callback: Optional[Callable[[], None]] = None,
+        show_tqdm: bool = False
     ) -> Dict[str, Any]:
         """
         Exporta los puntos detectados y genera metadatos.
@@ -38,13 +40,15 @@ class TennisExporter:
             points: Lista de puntos a exportar
             start_index: Índice inicial para la numeración
             add_overlay: Si se debe añadir información superpuesta
+            progress_callback: Función callback para reportar progreso
+            show_tqdm: Si se debe mostrar la barra de progreso de tqdm
             
         Returns:
             Diccionario con resumen de la exportación
         """
         # Crear directorios
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        videos_dir = self.output_dir / "points"
+        videos_dir = self.output_dir
         videos_dir.mkdir(exist_ok=True)
         
         # Preparar metadatos
@@ -53,8 +57,12 @@ class TennisExporter:
         failed_exports = []
         
         # Exportar cada punto
-        print("\nExportando puntos...")
-        for i, point in enumerate(tqdm(points), start=start_index):
+        if show_tqdm:
+            point_iterator = tqdm(enumerate(points, start=start_index), total=len(points), desc="Exportando puntos")
+        else:
+            point_iterator = enumerate(points, start=start_index)
+            
+        for i, point in point_iterator:
             point_data = self._create_point_metadata(point, i)
             output_path = videos_dir / f"point_{i:03d}.mp4"
             
@@ -72,6 +80,9 @@ class TennisExporter:
                 point_data["export_status"] = "failed"
             
             metadata["points"].append(point_data)
+            
+            if progress_callback:
+                progress_callback()
         
         # Guardar metadatos
         self._save_metadata(metadata)

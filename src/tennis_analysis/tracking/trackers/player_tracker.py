@@ -45,6 +45,20 @@ class PlayerTracker:
             frame_number: Número del frame actual
             timestamp: Timestamp del frame
         """
+        # Add defensive check for empty DataFrame
+        if boxes_df.empty:
+            self.history.append(TrackingFrame(
+                frame_number=frame_number,
+                detections=[],
+                timestamp=timestamp
+            ))
+            return
+
+        # Add verification of required columns
+        required_columns = ['x', 'y', 'w', 'h', 'conf', 'class']
+        if not all(col in boxes_df.columns for col in required_columns):
+            raise ValueError(f"DataFrame missing required columns. Expected {required_columns}, got {boxes_df.columns}")
+
         # Filtrar por confianza y clase
         boxes_df = boxes_df[
             (boxes_df['conf'] >= self.confidence_threshold) &

@@ -23,6 +23,8 @@ tqdm
 # Utilities
 pyyaml
 requests
+rich
+psutil
 
 # Development tools (optional)
 pytest

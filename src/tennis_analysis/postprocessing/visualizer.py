@@ -124,7 +124,7 @@ class TrackingVisualizer:
         ball_tracker: BallTracker
     ) -> np.ndarray:
         """Dibuja la trayectoria de la pelota."""
-        trajectory_points = ball_tracker.get_trajectory()
+        trajectory_points = ball_tracker.get_trajectory_segments()
         
         for pt1, pt2 in trajectory_points:
             cv2.line(

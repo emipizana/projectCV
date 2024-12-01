@@ -129,8 +129,8 @@ class VideoProcessor:
         cap.release()
         out.release()
         
-        if show_progress:
-            print('\nProcesamiento completado!')
+        # if show_progress:
+        #     print('\nProcesamiento completado!')
             
         return stats
     
