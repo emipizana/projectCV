@@ -1,15 +1,14 @@
 """
-Módulo para visualización de tracking en video.
+Module for visualization of tracking in video with interpolation support.
 """
 
 import cv2
 import numpy as np
-from typing import Optional, Dict, Tuple, Any
-
-from ..tracking.trackers import BallTracker, PlayerTracker
+import pandas as pd
+from typing import Optional, Dict, Tuple, List, Any
 
 class TrackingVisualizer:
-    """Visualizador para tracking de tenis."""
+    """Visualizer for tennis tracking with interpolation support."""
     
     def __init__(
         self,
@@ -17,25 +16,17 @@ class TrackingVisualizer:
         height: int,
         colors: Optional[Dict[str, Tuple[int, int, int]]] = None
     ):
-        """
-        Args:
-            width: Ancho del frame
-            height: Alto del frame
-            colors: Diccionario de colores para visualización
-        """
         self.width = width
         self.height = height
         self.colors = colors or {
-            'ball': (0, 0, 255),      # Rojo
-            'ball_predicted': (0, 255, 255),  # Amarillo
-            'trajectory': (0, 165, 255),      # Naranja
-            'player1': (0, 255, 0),    # Verde
-            'player2': (255, 0, 0),    # Azul
-            'overlay_bg': (0, 0, 0),   # Negro
-            'overlay_text': (255, 255, 255)  # Blanco
+            'ball': (0, 0, 255),      # Red
+            'trajectory': (0, 165, 255),      # Orange
+            'player1': (0, 255, 0),    # Green
+            'player2': (255, 0, 0),    # Blue
+            'overlay_bg': (0, 0, 0),   # Black
+            'overlay_text': (255, 255, 255)  # White
         }
         
-        # Configuración de texto
         self.font = cv2.FONT_HERSHEY_SIMPLEX
         self.font_scale = 0.5
         self.font_scale_overlay = 0.4
@@ -45,166 +36,137 @@ class TrackingVisualizer:
     def draw_tracking(
         self,
         frame: np.ndarray,
-        ball_tracker: BallTracker,
-        player_tracker: PlayerTracker,
+        current_ball_pos: Optional[np.ndarray],
+        player_boxes: pd.DataFrame,
+        trajectory_segments: List[Tuple[np.ndarray, np.ndarray]],
         frame_number: int,
+        stats: Dict[str, int],
         show_stats: bool = True
     ) -> np.ndarray:
         """
-        Dibuja el tracking sobre el frame.
+        Draws tracking visualization on frame.
         
         Args:
-            frame: Frame a procesar
-            ball_tracker: Instancia de BallTracker
-            player_tracker: Instancia de PlayerTracker
-            frame_number: Número de frame actual
-            show_stats: Si se debe mostrar estadísticas en overlay
-            
-        Returns:
-            Frame con visualización
+            frame: Frame to draw on
+            current_ball_pos: Current ball position (if available)
+            player_boxes: DataFrame with player detections
+            trajectory_segments: List of point pairs for trajectory
+            frame_number: Current frame number
+            stats: Dictionary with tracking statistics
+            show_stats: Whether to show statistics overlay
         """
-        # Dibujar jugadores
-        frame = self._draw_players(frame, player_tracker, frame_number)
+        if len(player_boxes) == 2:
+            # Draw players
+            frame = self._draw_players(frame, player_boxes)
         
-        # Dibujar trayectoria de la pelota
-        frame = self._draw_ball_trajectory(frame, ball_tracker)
+            # Draw ball trajectory
+            frame = self._draw_ball_trajectory(frame, trajectory_segments)
         
-        # Dibujar pelota (detectada o predicha)
-        frame = self._draw_ball(frame, ball_tracker)
+        # Draw current ball position
+        if current_ball_pos is not None:
+            frame = self._draw_ball(frame, current_ball_pos)
         
-        # Añadir estadísticas si se solicita
+        # Add statistics overlay
         if show_stats:
-            stats = {
+            frame = self.add_overlay(frame, {
                 'frame': frame_number,
-                'ball_detected': len(ball_tracker.positions) > 0,
-                'ball_predicted': ball_tracker.last_predicted is not None,
-                'players': len(player_tracker.get_player_positions(frame_number))
-            }
-            frame = self.add_overlay(frame, stats)
+                'detections': stats['total_detections'],
+                'outliers_filtered': stats['outliers_filtered'],
+                'players': len(player_boxes)
+            })
         
         return frame
     
     def _draw_players(
         self,
         frame: np.ndarray,
-        player_tracker: PlayerTracker,
-        frame_number: int
+        player_boxes: pd.DataFrame
     ) -> np.ndarray:
-        """Dibuja las detecciones de jugadores."""
-        # Obtener posiciones actuales
-        positions = player_tracker.get_player_positions(frame_number)
-        
-        for current_frame in player_tracker.history:
-            if current_frame.frame_number == frame_number:
-                for detection in current_frame.detections:
-                    # Obtener color según jugador
-                    color = self.colors[f'player{detection.player_class + 1}']
-                    
-                    # Dibujar bounding box
-                    x1, y1, x2, y2 = detection.bbox
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                    
-                    # Añadir etiqueta
-                    label = f'Player {detection.player_class + 1}: {detection.confidence:.2f}'
-                    cv2.putText(
-                        frame,
-                        label,
-                        (x1, y1 - 10),
-                        self.font,
-                        self.font_scale,
-                        color,
-                        self.thickness
-                    )
+        """Draws player detections."""
+        for _, box in player_boxes.iterrows():
+            # Get color based on player class
+            color = self.colors[f'player{int(box["class"]) + 1}']
+            
+            # Calculate box coordinates
+            x, y = int(box['x']), int(box['y'])
+            w, h = int(box['w']), int(box['h'])
+            x1, y1 = int(x - w/2), int(y - h/2)
+            x2, y2 = int(x + w/2), int(y + h/2)
+            
+            # Draw bounding box
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            
+            # Add label
+            label = f'Player {int(box["class"]) + 1}: {box["conf"]:.2f}'
+            cv2.putText(
+                frame,
+                label,
+                (x1, y1 - 10),
+                self.font,
+                self.font_scale,
+                color,
+                self.thickness
+            )
         
         return frame
     
     def _draw_ball_trajectory(
         self,
         frame: np.ndarray,
-        ball_tracker: BallTracker
+        trajectory_segments: List[Tuple[np.ndarray, np.ndarray]]
     ) -> np.ndarray:
-        """Dibuja la trayectoria de la pelota."""
-        trajectory_points = ball_tracker.get_trajectory_segments()
-        
-        for pt1, pt2 in trajectory_points:
-            cv2.line(
-                frame,
-                tuple(map(int, pt1)),
-                tuple(map(int, pt2)),
-                self.colors['trajectory'],
-                1
-            )
+        """Draws ball trajectory."""
+        # Draw trajectory segments with gradually increasing thickness and alpha
+        n_segments = len(trajectory_segments)
+        if n_segments > 0:
+            for i, (start, end) in enumerate(trajectory_segments):
+                # Make more recent segments more visible
+                alpha = 0.3 + 0.7 * (i / n_segments)
+                thickness = max(1, int(1 + 2 * (i / n_segments)))
+                
+                overlay = frame.copy()
+                cv2.line(
+                    overlay,
+                    tuple(map(int, start)),
+                    tuple(map(int, end)),
+                    self.colors['trajectory'],
+                    thickness
+                )
+                cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
         
         return frame
     
     def _draw_ball(
         self,
         frame: np.ndarray,
-        ball_tracker: BallTracker
+        ball_position: np.ndarray,
     ) -> np.ndarray:
-        """Dibuja la pelota (detectada o predicha)."""
-        # Dibujar última posición detectada
-        if len(ball_tracker.positions) > 0:
-            last_pos = ball_tracker.positions[-1]
-            x, y = map(int, last_pos)
-            cv2.circle(frame, (x, y), 5, self.colors['ball'], -1)
-            cv2.putText(
-                frame,
-                'Ball',
-                (x - 20, y - 10),
-                self.font,
-                self.font_scale,
-                self.colors['ball'],
-                self.thickness
-            )
-        
-        # Dibujar posición predicha
-        elif ball_tracker.last_predicted is not None:
-            x, y = map(int, ball_tracker.last_predicted)
-            cv2.circle(frame, (x, y), 5, self.colors['ball_predicted'], -1)
-            cv2.putText(
-                frame,
-                'Predicted',
-                (x - 30, y - 10),
-                self.font,
-                self.font_scale,
-                self.colors['ball_predicted'],
-                self.thickness
-            )
-        
+        """Draws ball position."""
+        x, y = map(int, ball_position)
+        cv2.circle(frame, (x, y), 5, self.colors['ball'], -1)
         return frame
-    
+        
     def add_overlay(
         self,
         frame: np.ndarray,
         stats: Dict[str, Any],
         position: str = 'top-left'
     ) -> np.ndarray:
-        """
-        Añade un overlay con estadísticas al frame.
-        
-        Args:
-            frame: Frame base
-            stats: Diccionario con estadísticas
-            position: Posición del overlay ('top-left', 'top-right', etc.)
-            
-        Returns:
-            Frame con overlay
-        """
-        # Preparar textos
+        """Adds statistics overlay to frame."""
         texts = [
             f"Frame: {stats['frame']}",
-            f"Ball: {'Detected' if stats['ball_detected'] else 'Predicted' if stats['ball_predicted'] else 'Not Found'}",
-            f"Players: {stats['players']}"
+            f"Ball detections: {stats['detections']}",
+            f"Players: {stats['players']}",
+            f"Outliers filtered: {stats['outliers_filtered']}"
         ]
         
-        # Calcular dimensiones del overlay
+        # Calculate dimensions
         padding = 10
         line_height = 20
-        overlay_width = 150
+        overlay_width = 200  # Increased for longer text
         overlay_height = (len(texts) + 1) * line_height
         
-        # Determinar posición
+        # Set position
         if position == 'top-left':
             x, y = padding, padding
         elif position == 'top-right':
@@ -212,7 +174,7 @@ class TrackingVisualizer:
         else:
             x, y = padding, padding
         
-        # Crear overlay semi-transparente
+        # Create semi-transparent overlay
         overlay = frame.copy()
         cv2.rectangle(
             overlay,
@@ -223,7 +185,7 @@ class TrackingVisualizer:
         )
         cv2.addWeighted(overlay, 0.6, frame, 0.4, 0, frame)
         
-        # Añadir textos
+        # Add text
         for i, text in enumerate(texts):
             cv2.putText(
                 frame,

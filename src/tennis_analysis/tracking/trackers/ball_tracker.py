@@ -1,5 +1,5 @@
 """
-Módulo para el tracking de la pelota con trayectoria suavizada y detección de outliers.
+Module for ball tracking with trajectory smoothing and outlier detection.
 """
 
 from collections import deque
@@ -9,8 +9,8 @@ from typing import Optional, Tuple, List
 
 class BallTracker:
     """
-    Tracker para la pelota de tenis con predicción de posición, filtrado de outliers
-    y trayectoria suavizada.
+    Tennis ball tracker with position prediction, outlier filtering,
+    and smoothed trajectory.
     """
     
     def __init__(
@@ -18,16 +18,16 @@ class BallTracker:
         buffer_size: int = 30,
         max_frames_to_predict: int = 5,
         min_points_for_prediction: int = 3,
-        max_speed: float = 1000.0,  # Velocidad máxima permitida para filtrar outliers
+        max_speed: float = 1000.0,  # Maximum allowed speed for outlier filtering
         trajectory_points: int = 50
     ):
         """
         Args:
-            buffer_size: Tamaño del buffer para almacenar posiciones anteriores
-            max_frames_to_predict: Máximo número de frames para usar predicción
-            min_points_for_prediction: Mínimo número de puntos necesarios para predicción
-            max_speed: Velocidad máxima permitida (pixels/segundo) para filtrar outliers
-            trajectory_points: Número de puntos a usar en la interpolación
+            buffer_size: Size of buffer to store previous positions
+            max_frames_to_predict: Maximum number of frames to use prediction
+            min_points_for_prediction: Minimum number of points needed for prediction
+            max_speed: Maximum allowed speed (pixels/second) for outlier filtering
+            trajectory_points: Number of points to use in interpolation
         """
         self.positions = deque(maxlen=buffer_size)
         self.timestamps = deque(maxlen=buffer_size)
@@ -39,28 +39,27 @@ class BallTracker:
         self.max_speed = max_speed
         self.trajectory_points = trajectory_points
         
-        # Para almacenar posiciones filtradas
+        # For storing filtered positions
         self.filtered_positions = []
         self.filtered_timestamps = []
         self.outlier_positions = []
         self.outlier_timestamps = []
+        
+        # Interpolation functions
+        self.fx = None
+        self.fy = None
 
     def add_detection(self, position: np.ndarray, timestamp: float, confidence: float = 1.0):
         """
-        Añade una nueva detección de la pelota.
-        
-        Args:
-            position: Array [x, y] con la posición
-            timestamp: Timestamp de la detección
-            confidence: Confianza de la detección (0-1)
+        Adds a new ball detection.
         """
         position = np.asarray(position).flatten()
         timestamp = float(timestamp)
         
-        # Filtrar outliers basado en velocidad
+        # Filter outliers based on speed
         if len(self.filtered_positions) > 0:
             dt = timestamp - self.filtered_timestamps[-1]
-            if dt > 0:  # Evitar división por cero
+            if dt > 0:  # Avoid division by zero
                 dx = position[0] - self.filtered_positions[-1][0]
                 dy = position[1] - self.filtered_positions[-1][1]
                 speed = np.sqrt((dx/dt)**2 + (dy/dt)**2)
@@ -68,15 +67,19 @@ class BallTracker:
                 if speed <= self.max_speed:
                     self.filtered_positions.append(position)
                     self.filtered_timestamps.append(timestamp)
+                    # Update interpolation functions
+                    self._update_interpolation()
                 else:
                     self.outlier_positions.append(position)
                     self.outlier_timestamps.append(timestamp)
-                    # No agregamos al buffer principal si es outlier
+                    # Don't add to main buffer if outlier
                     return
         else:
-            # Siempre aceptamos el primer punto
+            # Always accept first point
             self.filtered_positions.append(position)
             self.filtered_timestamps.append(timestamp)
+            # Initialize interpolation functions
+            self._update_interpolation()
         
         self.positions.append(position)
         self.timestamps.append(timestamp)
@@ -84,102 +87,87 @@ class BallTracker:
         self.frames_without_detection = 0
         self.last_predicted = None
 
-    def predict_position(self, current_timestamp: float) -> Optional[np.ndarray]:
-        """
-        Predice la posición de la pelota basada en posiciones anteriores filtradas.
-        
-        Args:
-            current_timestamp: Timestamp actual
-            
-        Returns:
-            Array [x, y] con la posición predicha o None si no se puede predecir
-        """
-        if len(self.filtered_positions) < self.min_points_for_prediction:
-            return None
-
-        try:
+    def _update_interpolation(self):
+        """Updates interpolation functions with filtered positions."""
+        if len(self.filtered_positions) >= 3:  # Need at least 3 points for quadratic
             positions = np.array(self.filtered_positions)
             timestamps = np.array(self.filtered_timestamps)
+            
+            try:
+                self.fx = interp1d(timestamps, positions[:, 0], 
+                                 kind='quadratic', fill_value='extrapolate')
+                self.fy = interp1d(timestamps, positions[:, 1], 
+                                 kind='quadratic', fill_value='extrapolate')
+            except ValueError:
+                self.fx = None
+                self.fy = None
 
-            # Interpolación cuadrática para x e y
-            fx = interp1d(timestamps, positions[:, 0], kind='quadratic', 
-                         fill_value='extrapolate')
-            fy = interp1d(timestamps, positions[:, 1], kind='quadratic', 
-                         fill_value='extrapolate')
-
-            predicted_x = float(fx(current_timestamp))
-            predicted_y = float(fy(current_timestamp))
-
-            self.last_predicted = np.array([predicted_x, predicted_y])
-            return self.last_predicted
-
-        except (ValueError, IndexError):
+    def predict_position(self, current_timestamp: float) -> Optional[np.ndarray]:
+        """
+        Predicts ball position using current interpolation functions.
+        """
+        if self.fx is None or self.fy is None:
             return None
 
-    def get_smooth_trajectory(self, trajectory_length: int = 7) -> np.ndarray:
-        """
-        Genera una trayectoria suavizada usando solo los últimos N puntos filtrados.
-        
-        Args:
-            trajectory_length: Número de puntos anteriores a usar para la trayectoria
-            
-        Returns:
-            Array numpy de puntos [x, y] que forman la trayectoria suavizada
-        """
-        if len(self.filtered_positions) < 2:
-            return np.array([])
-            
         try:
-            # Tomar solo los últimos N puntos
-            positions = np.array(self.filtered_positions[-trajectory_length:])
-            timestamps = np.array(self.filtered_timestamps[-trajectory_length:])
-            
-            # Crear timestamps interpolados
-            t_smooth = np.linspace(
-                timestamps[0], 
-                timestamps[-1], 
-                self.trajectory_points
-            )
-            
-            # Interpolar coordenadas x e y
-            fx = interp1d(timestamps, positions[:, 0], kind='quadratic')
-            fy = interp1d(timestamps, positions[:, 1], kind='quadratic')
-            
-            # Generar puntos suavizados
-            x_smooth = fx(t_smooth)
-            y_smooth = fy(t_smooth)
-            
-            return np.column_stack((x_smooth, y_smooth))
-            
-        except (ValueError, IndexError):
-            # Si hay error en interpolación, devolver los puntos filtrados
-            return np.array(self.filtered_positions[-trajectory_length:])
+            predicted_x = float(self.fx(current_timestamp))
+            predicted_y = float(self.fy(current_timestamp))
+            self.last_predicted = np.array([predicted_x, predicted_y])
+            return self.last_predicted
+        except ValueError:
+            return None
 
     def get_trajectory_segments(self, trajectory_length: int = 7) -> List[Tuple[np.ndarray, np.ndarray]]:
         """
-        Obtiene segmentos de línea para dibujar la trayectoria suavizada.
-        
-        Args:
-            trajectory_length: Número de puntos anteriores a usar para la trayectoria
-            
-        Returns:
-            Lista de tuplas (punto_inicio, punto_fin) para dibujar líneas
+        Gets line segments for the smoothed trajectory visualization.
+        Similar to the notebook implementation.
         """
-        trajectory_points = self.get_smooth_trajectory(trajectory_length)
-        
-        if len(trajectory_points) < 2:
+        if len(self.filtered_positions) < trajectory_length:
             return []
+        
+        current_timestamp = self.filtered_timestamps[-1]
+        from_timestamp = max(current_timestamp - 1.0,0)
             
-        segments = []
-        for i in range(len(trajectory_points) - 1):
-            start = trajectory_points[i].copy()
-            end = trajectory_points[i + 1].copy()
-            segments.append((start, end))
+        # Get the last N positions and timestamps
+        recent_positions = np.array(self.filtered_positions[-trajectory_length:])
+        recent_timestamps = np.array(self.filtered_timestamps[-trajectory_length:])
+        
+        try:
+            # Create interpolation functions for recent trajectory
+            fx_recent = interp1d(recent_timestamps, recent_positions[:, 0], 
+                               kind='quadratic', fill_value='extrapolate')
+            fy_recent = interp1d(recent_timestamps, recent_positions[:, 1], 
+                               kind='quadratic', fill_value='extrapolate')
             
-        return segments
+            # Create timestamps for smooth trajectory
+            t_smooth = np.linspace(from_timestamp, current_timestamp, 20)
+            
+            # Generate smooth points
+            points = []
+            for t in t_smooth:
+                try:
+                    x = fx_recent(t)
+                    y = fy_recent(t)
+                    points.append(np.array([x, y]))
+                except ValueError:
+                    continue
+            
+            # Create segments from points
+            segments = []
+            for i in range(len(points) - 1):
+                segments.append((points[i], points[i + 1]))
+                
+            return segments
+            
+        except (ValueError, IndexError):
+            # If interpolation fails, return segments from filtered positions
+            segments = []
+            for i in range(len(recent_positions) - 1):
+                segments.append((recent_positions[i], recent_positions[i + 1]))
+            return segments
 
     def reset(self):
-        """Reinicia el estado del tracker."""
+        """Resets tracker state."""
         self.positions.clear()
         self.timestamps.clear()
         self.confidences.clear()
@@ -189,3 +177,5 @@ class BallTracker:
         self.outlier_timestamps = []
         self.last_predicted = None
         self.frames_without_detection = 0
+        self.fx = None
+        self.fy = None

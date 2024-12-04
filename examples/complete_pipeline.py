@@ -46,6 +46,7 @@ class TennisPipeline:
         output_dir: str,
         model_players_path: str,
         model_ball_path: str,
+        example_path: Optional[str] = None,
         device: str = 'cuda'
     ):
         self.output_dir = Path(output_dir)
@@ -53,6 +54,7 @@ class TennisPipeline:
         self.model_ball_path = model_ball_path
         self.device = device
         self.stats = PipelineStats()
+        self.example_path = example_path
         
         # Setup logging
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -100,9 +102,15 @@ class TennisPipeline:
             def update_progress(current: int, total: int):
                 progress.update(task, completed=(current / total) * 100)
             
-            scene_changes, scores = detector.detect_scenes(
-                progress_callback=update_progress
-            )
+            if self.example_path is not None:
+                scene_changes, scores = detector.detect_scenes(
+                    progress_callback=update_progress,
+                    example_frame=loader.read_frame(self.example_path)
+                )
+            else:
+                scene_changes, scores = detector.detect_scenes(
+                    progress_callback=update_progress
+                )
         
         points = identifier.identify_points(scene_changes, scores)
         self.stats.total_points = len(points)
@@ -166,6 +174,7 @@ def process_complete(
     model_players_path: str,
     model_ball_path: str,
     device: str = 'cuda',
+    example_path: Optional[str] = None,
     start_time: Optional[str] = None,
     duration: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -233,6 +242,7 @@ def main():
     parser.add_argument('--model-players', required=True, help='YOLO players model path')
     parser.add_argument('--model-ball', required=True, help='YOLO ball model path')
     parser.add_argument('--device', default='cuda', choices=['cuda', 'cpu', 'mps'])
+    parser.add_argument('--example_path', help='Example target path')
     parser.add_argument('--start-time', help='Start time (HH:MM:SS)')
     parser.add_argument('--duration', help='Duration (HH:MM:SS)')
     
@@ -246,6 +256,7 @@ def main():
                 model_players_path=args.model_players,
                 model_ball_path=args.model_ball,
                 device=args.device,
+                example_path=args.example_path,
                 start_time=args.start_time,
                 duration=args.duration
             )

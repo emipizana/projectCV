@@ -15,6 +15,7 @@ summary = process_complete(
     output_dir="examples/output",
     model_players_path="models/players/best.pt",
     model_ball_path="models/ball/best.pt",
+    example_path="examples/pre_saved_video/example_hardcourt.mp4",
     device="mps",
     start_time="01:30:00",
     duration="00:05:00"
