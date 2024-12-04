@@ -7,6 +7,7 @@ import numpy as np
 from typing import List, Tuple, Optional, Callable
 from .video_loader import VideoLoader
 from typing import Dict
+import matplotlib.pyplot as plt
 
 class SceneDetector:
     """Detector de cambios de escena en videos."""
@@ -14,19 +15,17 @@ class SceneDetector:
     def __init__(
         self,
         video_loader: VideoLoader,
-        scene_threshold: float = 45.0,
+        scene_threshold: float = 10.0,
         resize_width: int = 320,
         resize_height: int = 180,
-        static_window: int = 30,  # Number of frames to confirm static scene
-        min_static_duration: int = 45  # Minimum frames for a tennis point
+        fps: int = 30,  # Frames por segundo del video
+        min_scene_duration: int = 4*30
     ):
         self.loader = video_loader
         self.scene_threshold = scene_threshold
         self.resize_dims = (resize_width, resize_height)
-        self.static_window = static_window
-        self.min_static_duration = min_static_duration
-        self.static_threshold = None
-        self.dynamic_threshold = None
+        self.fps = fps
+        self.min_scene_duration = min_scene_duration
         self.detected_points = []  # Store points here
         
     def detect_scenes(
@@ -38,7 +37,7 @@ class SceneDetector:
     ) -> Tuple[List[int], List[float]]:
         """
         Detecta cambios de escena en el video usando lectura secuencial.
-        También detecta puntos de tenis pero los almacena internamente.
+        Almacena tanto puntos como no-puntos que cumplan la duración mínima.
         
         Returns:
             Tuple containing:
@@ -47,7 +46,7 @@ class SceneDetector:
         """
         scene_changes = []
         change_scores = []
-        self.detected_points = []  # Reset points
+        self.detected_points = []
         
         # Determinar frame final
         if end_frame is None:
@@ -55,10 +54,6 @@ class SceneDetector:
             
         total_frames = end_frame - start_frame
         UPDATE_INTERVAL = max(1, total_frames // 1000)
-        
-        # Si no tenemos umbrales optimizados, calcularlos
-        if self.static_threshold is None:
-            self._optimize_thresholds(min(1000, total_frames), start_frame)
         
         # Posicionar el video en el frame inicial
         self.loader.cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
@@ -76,10 +71,13 @@ class SceneDetector:
         
         current_frame = start_frame + 1
         
-        # Variables para detección de puntos
-        static_frame_count = 0
-        potential_point_start = None
-        recent_diffs = []
+        # Variables para detección de escenas
+        current_scene_start = start_frame
+        temp_scene_start = None  # Para almacenar temporalmente posibles cambios de escena
+        current_scene_type = 'low'  # 'low' para movimiento bajo, 'high' para alto
+        scene_diffs = []  # Lista de diferencias en la escena actual
+        temp_scene_type = None  # Para almacenar temporalmente el tipo de la posible nueva escena
+        frames_in_temp_scene = 0  # Contador de frames en la escena temporal
         
         # Procesar frames secuencialmente
         while current_frame < end_frame:
@@ -95,153 +93,98 @@ class SceneDetector:
             diff = cv2.absdiff(small_frame, small_prev)
             diff_score = np.mean(diff)
             change_scores.append(diff_score)
-            recent_diffs.append(diff_score)
+            scene_diffs.append(diff_score)
             
-            # Mantener ventana de diferencias recientes
-            if len(recent_diffs) > self.static_window:
-                recent_diffs.pop(0)
+            # Determinar si hay un cambio significativo en el tipo de escena
+            current_mean_diff = np.mean(scene_diffs[-min(15, len(scene_diffs)):])  # Media móvil de 15 frames
+            new_scene_type = 'high' if current_mean_diff > self.scene_threshold else 'low'
             
-            # Detectar cambio de escena
-            if diff_score > self.scene_threshold:
-                scene_changes.append(current_frame)
-                # Reset point detection si hay cambio de escena
-                static_frame_count = 0
-                potential_point_start = None
-            
-            # Detectar secuencias estáticas (posibles puntos)
-            mean_recent_diff = np.mean(recent_diffs) if recent_diffs else diff_score
-            
-            if mean_recent_diff < self.static_threshold:
-                if potential_point_start is None:
-                    potential_point_start = current_frame
-                static_frame_count += 1
+            # Manejar cambios de escena
+            if new_scene_type != current_scene_type:
+                if temp_scene_start is None:
+                    # Iniciar una posible nueva escena
+                    temp_scene_start = current_frame
+                    temp_scene_type = new_scene_type
+                    frames_in_temp_scene = 1
+                elif new_scene_type != temp_scene_type:
+                    # Reset del contador temporal si el tipo cambia
+                    temp_scene_start = current_frame
+                    temp_scene_type = new_scene_type
+                    frames_in_temp_scene = 1
+                else:
+                    # Incrementar contador de frames en la escena temporal
+                    frames_in_temp_scene += 1
+                    
+                    # Si la escena temporal supera la duración mínima, confirmar el cambio
+                    if frames_in_temp_scene >= self.min_scene_duration:
+                        scene_duration = temp_scene_start - current_scene_start
+                        
+                        # Registrar la escena anterior
+                        self.detected_points.append({
+                            'start_frame': current_scene_start,
+                            'end_frame': temp_scene_start,
+                            'duration': scene_duration,
+                            'is_point': current_scene_type == 'low'
+                        })
+                        scene_changes.append(current_scene_start)
+                        
+                        # Iniciar nueva escena
+                        current_scene_start = temp_scene_start
+                        current_scene_type = temp_scene_type
+                        scene_diffs = scene_diffs[-frames_in_temp_scene:]
+                        temp_scene_start = None
+                        frames_in_temp_scene = 0
             else:
-                # Si teníamos una secuencia estática suficientemente larga, guardarla como punto
-                if (potential_point_start is not None and 
-                    static_frame_count >= self.min_static_duration):
-                    self.detected_points.append({
-                        'start_frame': potential_point_start,
-                        'end_frame': current_frame,
-                        'duration': current_frame - potential_point_start
-                    })
-                static_frame_count = 0
-                potential_point_start = None
+                # Resetear variables temporales si volvemos al tipo original
+                temp_scene_start = None
+                frames_in_temp_scene = 0
             
             # Actualizar frame previo
             if example_frame is None:
                 small_prev = small_frame.copy()
-                
+            
             # Reportar progreso
-            if (current_frame - start_frame) % UPDATE_INTERVAL == 0:
-                if progress_callback:
-                    progress_callback(current_frame - start_frame, total_frames)
-                else:
-                    print(f"Procesando frame {current_frame}/{end_frame}")
+            if (current_frame - start_frame) % UPDATE_INTERVAL == 0 and progress_callback:
+                progress_callback(current_frame - start_frame, total_frames)
             
             current_frame += 1
         
-        # Verificar último punto potencial
-        if (potential_point_start is not None and 
-            static_frame_count >= self.min_static_duration):
+        # Procesar última escena
+        if (current_frame - current_scene_start) >= self.min_scene_duration:
             self.detected_points.append({
-                'start_frame': potential_point_start,
+                'start_frame': current_scene_start,
                 'end_frame': current_frame,
-                'duration': current_frame - potential_point_start
+                'duration': current_frame - current_scene_start,
+                'is_point': current_scene_type == 'low'
             })
-                
+            scene_changes.append(current_scene_start)
+        
         # Asegurar que reportamos 100% al final
         if progress_callback:
             progress_callback(total_frames, total_frames)
             
-        plot_scene_detection(change_scores, scene_changes, self.static_threshold, self.dynamic_threshold, self.scene_threshold)
+        # plot_scene_detection(change_scores, scene_changes, self.scene_threshold)
                 
         return scene_changes, change_scores
     
     def get_detected_points(self) -> List[Dict[str, int]]:
         """
-        Returns the list of detected tennis points.
+        Returns the list of detected scenes (both points and non-points).
         
         Returns:
             List of dictionaries containing:
-            - start_frame: Frame where point starts
-            - end_frame: Frame where point ends
+            - start_frame: Frame where scene starts
+            - end_frame: Frame where scene ends
             - duration: Duration in frames
+            - is_point: Boolean indicating if the scene is a tennis point
         """
         return self.detected_points
-    
-    def _optimize_thresholds(
-        self,
-        sample_size: int = 1000,
-        start_frame: int = 0
-    ) -> None:
-        """
-        Optimiza los umbrales de detección usando una muestra de frames.
-        """
-        # Position video at start frame
-        self.loader.cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-        
-        # Initialize collections
-        frame_diffs = []
-        
-        # Process sample frames
-        for i in range(sample_size):
-            ret, frame = self.loader.cap.read()
-            if not ret:
-                break
-                
-            # Resize frame
-            small_frame = cv2.resize(frame, self.resize_dims)
-            
-            # For first frame, just store and continue
-            if i == 0:
-                prev_frame = small_frame
-                continue
-            
-            # Calculate frame difference
-            diff = cv2.absdiff(small_frame, prev_frame)
-            diff_score = np.mean(diff)
-            frame_diffs.append(diff_score)
-            
-            # Update previous frame
-            prev_frame = small_frame
-        
-        if not frame_diffs:
-            self.static_threshold = self.scene_threshold * 0.2
-            self.dynamic_threshold = self.scene_threshold
-            return
-            
-        # Analyze frame differences distribution
-        diffs_array = np.array(frame_diffs)
-        
-        # Calculate statistics
-        mean_diff = np.mean(diffs_array)
-        std_diff = np.std(diffs_array)
-        
-        # Set thresholds
-        self.static_threshold = mean_diff - std_diff/2
-        self.dynamic_threshold = 0.8*mean_diff
-        
-        # Adjust if needed based on percentiles
-        static_frames = np.sum(diffs_array < self.static_threshold)
-        if static_frames < 0.2 * len(diffs_array):
-            self.static_threshold = np.percentile(diffs_array, 20)
-            
-        dynamic_frames = np.sum(diffs_array > self.dynamic_threshold)
-        if dynamic_frames < 0.1 * len(diffs_array):
-            self.dynamic_threshold = np.percentile(diffs_array, 90)
-        
-        # Update scene threshold if not manually set
-        if self.scene_threshold == 45.0:  # Default value
-            self.scene_threshold = self.dynamic_threshold
-            
-import matplotlib.pyplot as plt
-import numpy as np
 
-def plot_scene_detection(change_scores, scene_changes, static_threshold, dynamic_threshold, scene_threshold):
+def plot_scene_detection(change_scores, scene_changes, scene_threshold):
     """
     Plot scene detection analysis including:
     - Frame differences over time
-    - Various thresholds
+    - Scene threshold
     - Detected scene changes
     """
     plt.figure(figsize=(15, 8))
@@ -250,17 +193,12 @@ def plot_scene_detection(change_scores, scene_changes, static_threshold, dynamic
     frames = np.arange(len(change_scores))
     plt.plot(frames, change_scores, 'b-', alpha=0.5, label='Frame Differences')
     
-    # Plot thresholds as horizontal lines
-    plt.axhline(y=static_threshold, color='g', linestyle='--', label='Static Threshold')
-    plt.axhline(y=dynamic_threshold, color='r', linestyle='--', label='Dynamic Threshold')
-    plt.axhline(y=scene_threshold, color='purple', linestyle='--', label='Scene Threshold')
+    # Plot threshold as horizontal line
+    plt.axhline(y=scene_threshold, color='r', linestyle='--', label='Scene Threshold')
     
     # Plot scene changes as vertical lines
     for change in scene_changes:
         plt.axvline(x=change, color='red', alpha=0.3)
-    
-    # Annotate key points
-    for change in scene_changes:
         plt.plot(change, change_scores[change] if change < len(change_scores) else 0, 
                 'ro', markersize=8)
     
@@ -271,13 +209,8 @@ def plot_scene_detection(change_scores, scene_changes, static_threshold, dynamic
     plt.grid(True, alpha=0.3)
     
     # Set y-axis limits with some padding
-    max_score = max(max(change_scores), scene_threshold, dynamic_threshold) * 1.1
+    max_score = max(max(change_scores), scene_threshold) * 1.1
     plt.ylim(0, max_score)
     
     plt.tight_layout()
-    
-    # To use in a Jupyter notebook:
     plt.show()
-    
-    # Or to save to file:
-    # plt.savefig('scene_detection_analysis.png', dpi=300, bbox_inches='tight')

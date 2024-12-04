@@ -197,9 +197,13 @@ class VideoProcessor:
             for frame in range(total_frames):
                 timestamp = frame / fps
                 try:
-                    x = fx(timestamp)
-                    y = fy(timestamp)
-                    interpolated_positions[frame] = np.array([x, y])
+                    # the timestamp has to be bigger than the first detected ball timestamp and small than the last detected ball timestamp
+                    if timestamp >= filtered_timestamps[0] or timestamp <= filtered_timestamps[-1]:
+                        x = fx(timestamp)
+                        y = fy(timestamp)
+                        interpolated_positions[frame] = np.array([x, y])
+                    else:
+                        interpolated_positions[frame] = None
                 except ValueError:
                     continue
         
@@ -313,13 +317,14 @@ class VideoProcessor:
         cap.release()
         out.release()
         
+        
         # Compute statistics
         stats = {
             'total_frames': tracking_data.total_frames,
-            'ball_detections': len(tracking_data.ball_detections),
+            'ball_detections': tracking_data.ball_detections,
             'interpolated_positions': len(tracking_data.interpolated_positions),
             'outliers_filtered': len(tracking_data.outlier_positions),
-            'player_detections': sum(len(boxes) for boxes in tracking_data.player_detections)
+            'player_detections': tracking_data.player_detections
         }
         
         return stats

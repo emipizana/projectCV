@@ -13,6 +13,8 @@ from rich.console import Console
 from rich.progress import Progress
 import psutil
 
+import pandas as pd
+
 # Initialize Rich console
 console = Console()
 
@@ -121,6 +123,10 @@ class TennisPipeline:
         from tennis_analysis.preprocessor import TennisExporter
         
         points_dir = self.output_dir / "points"
+        
+        if points_dir.exists():
+            import shutil
+            shutil.rmtree(points_dir)
         exporter = TennisExporter(video_loader, str(points_dir))
         
         with Progress() as progress:
@@ -135,10 +141,13 @@ class TennisPipeline:
 
     def track_points(self, points: list) -> list:
         """Process points with player and ball tracking"""
-        from tennis_analysis.postprocessing import VideoProcessor
+        from tennis_analysis.tracking_display import VideoProcessor
         
         points_dir = self.output_dir / "points"
         tracked_dir = self.output_dir / "tracked_points"
+        if tracked_dir.exists():
+            import shutil
+            shutil.rmtree(tracked_dir)
         tracked_dir.mkdir(exist_ok=True)
         
         processor = VideoProcessor(
@@ -149,9 +158,10 @@ class TennisPipeline:
         
         tracking_stats = []
         with Progress() as progress:
-            task = progress.add_task("Tracking points...", total=len(points))
+            total_points = max(len(points), 1)
+            task = progress.add_task("Analyzing points...", total=total_points)
             
-            for i, _ in enumerate(points, 1):
+            for i in range(1, total_points+1):
                 input_path = points_dir / f"point_{i:03d}.mp4"
                 output_path = tracked_dir / f"point_{i:03d}_tracked.mp4"
                 
@@ -167,6 +177,44 @@ class TennisPipeline:
                 progress.advance(task)
                 
         return tracking_stats
+    
+    
+    def process_minimaps(self, points: list, player_boxes: Any) -> list:
+        """Add minimap overlays to tracked point videos."""
+        from tennis_analysis.projector.minimap import add_minimaps
+        
+        tracked_dir = self.output_dir / "tracked_points"
+        minimap_dir = self.output_dir / "minimap_points"
+        
+        if minimap_dir.exists():
+            import shutil
+            shutil.rmtree(minimap_dir)
+        minimap_dir.mkdir(exist_ok=True)
+        
+        minimap_stats = add_minimaps(
+            tracked_dir=str(tracked_dir),
+            output_dir=str(minimap_dir),
+            player_boxes=player_boxes
+        )
+        
+        return minimap_stats
+
+    def assemble_tracked_videos(self) -> None:
+        """Assemble all tracked point videos into a single video"""
+        from tennis_analysis.postprocessor.assembler import VideoAssembler
+        
+        tracked_dir = self.output_dir / "tracked_points"
+        assembled_path = self.output_dir / "assembled_match.mp4"
+        
+        with console.status("[bold green]Assembling final video..."):
+            assembler = VideoAssembler(
+                input_folder=str(tracked_dir),
+                output_path=str(assembled_path),
+                transition_frames=30,  # Default transitions
+                output_fps=30         # Default fps
+            )
+            assembler.assemble_videos()
+            self.logger.info(f"Video assembly completed. Output saved to: {assembled_path}")
 
 def process_complete(
     video_url: Optional[str],
@@ -195,9 +243,9 @@ def process_complete(
     try:
         # Get video
         if video_url:
-            video_path = pipeline.download_video(video_url, start_time, duration)
+            video_path = Path(pipeline.download_video(video_url, start_time, duration))
         else:
-            video_path = Path('./examples/pre_saved_video/match_hardcourt.mp4')
+            video_path = Path('./examples/output/match.mp4')
             
         if not video_path.exists():
             raise FileNotFoundError(f"Video not found: {video_path}")
@@ -207,6 +255,13 @@ def process_complete(
         pipeline.export_points(points, video_loader)
         tracking_stats = pipeline.track_points(points)
         
+        # Minimap
+        player_detections = [s['player_detections'] for s in tracking_stats]
+        minimap_stats = pipeline.process_minimaps(points, player_detections)
+        
+        # Añadir el ensamblado final
+        pipeline.assemble_tracked_videos()
+        
         # Finalize statistics
         pipeline.stats.processing_time = time.time() - start
         pipeline.stats.peak_memory_mb = psutil.Process().memory_info().rss / (1024 * 1024)
@@ -215,9 +270,11 @@ def process_complete(
         summary = {
             'total_points': pipeline.stats.total_points,
             'exported_points': pipeline.stats.successful_exports,
-            'tracking_results': tracking_stats,
+            #'tracking_results': tracking_stats,
+            #'minimap_results': minimap_stats,
             'output_directory': str(pipeline.output_dir),
-            'metrics': pipeline.stats.to_dict()
+            'assembled_video': str(pipeline.output_dir / "assembled_match.mp4")# ,
+            #'metrics': pipeline.stats.to_dict()
         }
         
         # Save report

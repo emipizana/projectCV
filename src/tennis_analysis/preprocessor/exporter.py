@@ -61,6 +61,7 @@ class TennisExporter:
             point_iterator = tqdm(enumerate(points, start=start_index), total=len(points), desc="Exportando puntos")
         else:
             point_iterator = enumerate(points, start=start_index)
+        
             
         for i, point in point_iterator:
             point_data = self._create_point_metadata(point, i)
@@ -77,6 +78,38 @@ class TennisExporter:
                 point_data["video_path"] = str(output_path.relative_to(self.output_dir))
             else:
                 failed_exports.append(i)
+                point_data["export_status"] = "failed"
+            
+            metadata["points"].append(point_data)
+            
+            if progress_callback:
+                progress_callback()
+
+        if len(points) == 0:
+            point = TennisPoint(
+                start_frame = 0,
+                end_frame = self.loader.frame_count,
+                start_time = 0,
+                end_time = self.loader.frame_count / self.loader.fps,
+                score_shown = False,
+                confidence = 0,
+                scene_change_score = 0
+            )
+            
+            point_data = self._create_point_metadata(point, 0)
+            output_path = videos_dir / f"point_001.mp4"
+            
+            if self.extractor.extract_point(
+                point,
+                str(output_path),
+                add_overlay,
+                0
+            ):
+                successful_exports += 1
+                point_data["export_status"] = "success"
+                point_data["video_path"] = str(output_path.relative_to(self.output_dir))
+            else:
+                failed_exports.append(0)
                 point_data["export_status"] = "failed"
             
             metadata["points"].append(point_data)

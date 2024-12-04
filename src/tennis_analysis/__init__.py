@@ -10,7 +10,8 @@ from tennis_analysis.preprocessor import (
     TennisExporter
 )
 from tennis_analysis.tracking.trackers import BallTracker, PlayerTracker
-from tennis_analysis.postprocessing import VideoProcessor
+from tennis_analysis.tracking_display import VideoProcessor
+from tennis_analysis.projector import MinimapPostProcessor
 
 __version__ = "0.1.0"
 
@@ -22,5 +23,6 @@ __all__ = [
     'TennisExporter',
     'BallTracker',
     'PlayerTracker',
-    'VideoProcessor'
+    'VideoProcessor',
+    'MinimapPostProcessor'
 ]

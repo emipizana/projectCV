@@ -77,7 +77,10 @@ class PointExtractor:
             '-ss', str(start_time),  # Tiempo de inicio
             '-i', str(self.video_path),  # Archivo de entrada
             '-t', str(duration),  # Duración
-            '-c', 'copy',  # Copiar sin recodificar
+            '-c:v', 'libx264',      # Usar codec h264 para el video
+            '-an',                  # No incluir audio
+            '-preset', 'fast',      # Equilibrio entre velocidad y compresión
+            '-crf', '23',          # Factor de calidad constante (18-28 es buen rango, menor = mejor calidad)
             str(output_path)
         ]
         

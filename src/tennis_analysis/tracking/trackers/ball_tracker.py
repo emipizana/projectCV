@@ -134,9 +134,9 @@ class BallTracker:
         
         try:
             # Create interpolation functions for recent trajectory
-            fx_recent = interp1d(recent_timestamps, recent_positions[:, 0], 
+            fx_recent = interp1d(self.filtered_timestamps, self.filtered_positions[:, 0], 
                                kind='quadratic', fill_value='extrapolate')
-            fy_recent = interp1d(recent_timestamps, recent_positions[:, 1], 
+            fy_recent = interp1d(self.filtered_timestamps, self.filtered_positions[:, 1], 
                                kind='quadratic', fill_value='extrapolate')
             
             # Create timestamps for smooth trajectory
