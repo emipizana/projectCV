@@ -1,9 +1,0 @@
-numpy
-opencv-python
-yt-dlp
-scipy
-pandas
-matplotlib
-seaborn
-tqdm
-ultralytics
