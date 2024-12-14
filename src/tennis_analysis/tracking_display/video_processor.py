@@ -187,6 +187,7 @@ class VideoProcessor:
         interpolated_positions = {}
         
         if len(filtered_positions) >= 3:  # Need at least 3 points for quadratic interpolation
+            print(f'Total filtered positions: {len(filtered_positions)}')
             # Create interpolation functions
             fx = interp1d(filtered_timestamps, filtered_positions[:, 0], 
                         kind='quadratic', fill_value='extrapolate')
@@ -292,6 +293,7 @@ class VideoProcessor:
             current_ball_pos = None
             if len(player_boxes) == 2:
                 current_ball_pos = tracking_data.interpolated_positions.get(frame_count)
+            
             
             # Generate visualization
             frame_vis = visualizer.draw_tracking(

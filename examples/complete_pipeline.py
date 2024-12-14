@@ -153,7 +153,8 @@ class TennisPipeline:
         processor = VideoProcessor(
             model_players_path=self.model_players_path,
             model_ball_path=self.model_ball_path,
-            device=self.device
+            device=self.device,
+            conf_threshold={'ball': 0.05, 'players': 0.5}
         )
         
         tracking_stats = []
@@ -256,7 +257,10 @@ def process_complete(
         tracking_stats = pipeline.track_points(points)
         
         # Minimap
-        player_detections = [s['player_detections'] for s in tracking_stats]
+        player_detections = []
+        for s in tracking_stats:
+            for box in s['player_detections']:
+                player_detections.append(box.to_numpy())
         minimap_stats = pipeline.process_minimaps(points, player_detections)
         
         # Añadir el ensamblado final

@@ -33,6 +33,7 @@ class TrackingVisualizer:
         self.thickness = 2
         self.thickness_overlay = 1
         
+        
     def draw_tracking(
         self,
         frame: np.ndarray,
