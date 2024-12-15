@@ -60,7 +60,7 @@ sudo apt-get install ffmpeg
 
 ### Basic Usage
 
-1. **Use the test suite**: (Recommended way to test that it works)
+1. **Use the test suite**: *Recommended way to test that it works*
 ```bash
 python test.py
 ```
