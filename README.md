@@ -137,10 +137,13 @@ The framework generates:
    - Tracks the ball using YOLO with trajectory prediction
    - Tracks and identifies players
    - Handles occlusions and missed detections
-4. **Projection**:
+4. **Tracking Display**:
+   - Visualizes the tracked ball and players
+   - Generates player and ball trajectories
+5. **Projection**:
    - Detects court edges and homography
    - Creates a mini-map of the court
-5. **Postprocessing**:
+6. **Postprocessing**:
    - Generates visualization overlays
    - Creates analysis summaries
    - Exports processed videos
