@@ -2,6 +2,8 @@
 
 A comprehensive Python framework for analyzing tennis matches using computer vision and deep learning. This project automates the process of downloading tennis match videos, segmenting them into individual points, and tracking both the ball and players throughout each point.
 
+![Example Screenshot](examples/screenshot.png)
+
 ## 🎾 Features
 
 - **Video Download**: Automated download of tennis match videos with support for segment selection
