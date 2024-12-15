@@ -8,6 +8,7 @@ A comprehensive Python framework for analyzing tennis matches using computer vis
 - **Point Segmentation**: Intelligent segmentation of tennis matches into individual points
 - **Ball Tracking**: Advanced ball tracking using YOLO with trajectory prediction
 - **Player Tracking**: Dual-player tracking with identification
+- **Edge Detection and Homography**: Robust handling of occlusions and court perspective to create a mini-map
 - **Analysis & Visualization**: Comprehensive visual output with player positions and ball trajectories
 - **Modular Design**: Easy to extend and customize for specific needs
 
@@ -41,17 +42,12 @@ source venv/bin/activate
 .\venv\Scripts\activate
 ```
 
-3. **Install PyTorch** (for Mac M1/M2):
-```bash
-pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu
-```
-
-4. **Install other dependencies**:
+3. **Install other dependencies**:
 ```bash
 pip install -r requirements.txt
 ```
 
-5. **Install FFmpeg** (required for video processing):
+4. **Install FFmpeg** (required for video processing):
 ```bash
 # On MacOS
 brew install ffmpeg
@@ -64,7 +60,12 @@ sudo apt-get install ffmpeg
 
 ### Basic Usage
 
-1. **Process a complete match**:
+1. **Use the test suite**: <- This is the recommended way to test that it works
+```bash
+python test.py
+```
+
+2. **Process a complete match**:
 ```bash
 python examples/complete_pipeline.py \
     "https://youtube.com/watch?v=your_match" \
@@ -74,7 +75,7 @@ python examples/complete_pipeline.py \
     --device "cuda"  # or "mps" for Mac M1/M2, "cpu" for CPU
 ```
 
-2. **Process a specific segment**:
+3. **Process a specific segment**:
 ```bash
 python examples/complete_pipeline.py \
     "https://youtube.com/watch?v=your_match" \
@@ -110,10 +111,11 @@ tennis_analysis/
 │       ├── downloader/      # Video downloading
 │       ├── preprocessor/    # Point segmentation
 │       ├── tracking/        # Ball and player tracking
+│       ├── tracking_display/    # Visualization of the tracked ball and players
+│       ├── projector/    # Edge detection and homography for mini-map
 │       └── postprocessing/  # Visualization
-├── models/                  # Pre-trained models
-├── examples/               # Usage examples
-└── tests/                 # Test suite
+├── models/                  # Pre-trained YOLOv11 models
+└── examples/               # Usage examples
 ```
 
 ## 📊 Output
@@ -135,17 +137,13 @@ The framework generates:
    - Tracks the ball using YOLO with trajectory prediction
    - Tracks and identifies players
    - Handles occlusions and missed detections
-4. **Postprocessing**:
+4. **Projection**:
+   - Detects court edges and homography
+   - Creates a mini-map of the court
+5. **Postprocessing**:
    - Generates visualization overlays
    - Creates analysis summaries
    - Exports processed videos
-
-## 🛠 Configuration
-
-Key configurations can be modified in the respective config files:
-- `config/tracking_config.yaml`: Tracking parameters
-- `config/preprocessing_config.yaml`: Segmentation parameters
-- `config/visualization_config.yaml`: Visualization settings
 
 ## 📈 Performance Considerations
 
@@ -158,29 +156,14 @@ Key configurations can be modified in the respective config files:
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
-## 📝 License
+## 👥 Authors
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- **Alfonso Mateos Vicentee** ([@alffonsomv](https://github.com/AlffonsoMV)) – École Polytechnique Student
+- **Emiliano Pizaña Vela** ([@emipizana](https://github.com/emipizana)) – École Polytechnique Student
 
 ## 🙏 Acknowledgments
 
 - YOLO model architecture for object detection
-- Tennis match datasets used for training
+- Tennis match datasets used for training (Roboflow)
 - Community contributions and feedback
 
-## 📞 Contact
-
-For questions and support, please open an issue on the GitHub repository or contact [your-email@example.com].
-
-## 🚧 Known Issues & Limitations
-
-- Requires good video quality for optimal tracking
-- Performance may vary with different court types
-- Specific lighting conditions might affect tracking accuracy
-
-## 🗺 Roadmap
-
-- [ ] Add support for doubles matches
-- [ ] Implement shot type classification
-- [ ] Add statistical analysis features
-- [ ] Improve tracking in challenging conditions
