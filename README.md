@@ -60,12 +60,12 @@ sudo apt-get install ffmpeg
 
 ### Basic Usage
 
-1. **Use the test suite**: <- This is the recommended way to test that it works
+1. **Use the test suite**: (Recommended way to test that it works)
 ```bash
 python test.py
 ```
 
-2. **Process a complete match**:
+1. **Process a complete match**:
 ```bash
 python examples/complete_pipeline.py \
     "https://youtube.com/watch?v=your_match" \
@@ -75,7 +75,7 @@ python examples/complete_pipeline.py \
     --device "cuda"  # or "mps" for Mac M1/M2, "cpu" for CPU
 ```
 
-3. **Process a specific segment**:
+1. **Process a specific segment**:
 ```bash
 python examples/complete_pipeline.py \
     "https://youtube.com/watch?v=your_match" \
