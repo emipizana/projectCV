@@ -124,9 +124,9 @@ class TennisPipeline:
         
         points_dir = self.output_dir / "points"
         
-        if points_dir.exists():
-            import shutil
-            shutil.rmtree(points_dir)
+        # if points_dir.exists():
+        #     import shutil
+        #     shutil.rmtree(points_dir)
         exporter = TennisExporter(video_loader, str(points_dir))
         
         with Progress() as progress:
@@ -145,9 +145,9 @@ class TennisPipeline:
         
         points_dir = self.output_dir / "points"
         tracked_dir = self.output_dir / "tracked_points"
-        if tracked_dir.exists():
-            import shutil
-            shutil.rmtree(tracked_dir)
+        # if tracked_dir.exists():
+        #     import shutil
+        #     shutil.rmtree(tracked_dir)
         tracked_dir.mkdir(exist_ok=True)
         
         processor = VideoProcessor(
@@ -187,9 +187,9 @@ class TennisPipeline:
         tracked_dir = self.output_dir / "tracked_points"
         minimap_dir = self.output_dir / "minimap_points"
         
-        if minimap_dir.exists():
-            import shutil
-            shutil.rmtree(minimap_dir)
+        # if minimap_dir.exists():
+        #     import shutil
+        #     shutil.rmtree(minimap_dir)
         minimap_dir.mkdir(exist_ok=True)
         
         minimap_stats = add_minimaps(

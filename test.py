@@ -1,5 +1,6 @@
 import os
 import sys
+import torch
 
 # Añadir tanto src como examples al path
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -11,12 +12,12 @@ from complete_pipeline import process_complete
 
 # Usar el proceso
 summary = process_complete(
-    video_url=None, #"https://www.youtube.com/watch?v=6I06-ITW88k",
+    video_url= None,#"https://www.youtube.com/watch?v=FBVi4wLxotU", #"https://www.youtube.com/watch?v=6I06-ITW88k",
     output_dir="examples/output",
     model_players_path="models/players/best.pt",
     model_ball_path="models/ball/best.pt",
     example_path="examples/pre_saved_video/example_hardcourt.mp4",
-    device="mps",
-    start_time="01:30:00",
-    duration="00:01:00"
+    device="cuda" if torch.cuda.is_available() else "cpu",
+    start_time="00:07:47",
+    duration="00:08:01"
 )

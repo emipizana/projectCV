@@ -141,10 +141,57 @@ class VideoDownloader:
         if process.returncode != 0:
             raise DownloadError(f"Error en ffmpeg: {stderr.decode()}")
     
+    # def _cleanup(self):
+    #     """Limpia los archivos temporales."""
+    #     temp_file = self.temp_dir / "full_video.mp4"
+    #     if temp_file.exists():
+    #         temp_file.unlink()
+    #     if self.temp_dir.exists():
+    #         self.temp_dir.rmdir()
     def _cleanup(self):
-        """Limpia los archivos temporales."""
-        temp_file = self.temp_dir / "full_video.mp4"
-        if temp_file.exists():
-            temp_file.unlink()
-        if self.temp_dir.exists():
-            self.temp_dir.rmdir()
+        """Limpia los archivos temporales usando métodos alternativos."""
+        import time
+        
+        if not self.temp_dir.exists():
+            return
+        
+        def try_remove_file(file_path):
+            try:
+                if os.path.exists(file_path):
+                    # Asegurar que el archivo no es de solo lectura
+                    os.chmod(file_path, 0o777)
+                    os.remove(file_path)
+                    return True
+            except Exception:
+                return False
+            return True
+
+        # Lista de archivos conocidos para eliminar
+        files_to_remove = [
+            self.temp_dir / "full_video.mp4",
+            self.temp_dir / "full_video.f616.mp4",
+            self.temp_dir / "full_video.f251.webm",
+            # Añadir cualquier otro archivo temporal que se pueda generar
+        ]
+        
+        # Intentar eliminar cada archivo
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            # Eliminar archivos conocidos
+            all_files_removed = all(try_remove_file(f) for f in files_to_remove)
+            
+            # Eliminar cualquier archivo adicional que pueda existir
+            for file_name in os.listdir(self.temp_dir):
+                try_remove_file(self.temp_dir / file_name)
+            
+            # Intentar eliminar el directorio
+            try:
+                # Esperar un momento entre intentos
+                time.sleep(0.5)
+                os.rmdir(self.temp_dir)
+                break
+            except Exception as e:
+                if attempt == max_attempts - 1:
+                    import logging
+                    logging.warning(f"No se pudo eliminar el directorio temporal: {str(e)}")
+                time.sleep(1)

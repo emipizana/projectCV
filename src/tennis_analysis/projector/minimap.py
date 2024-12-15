@@ -20,8 +20,8 @@ class MinimapPostProcessor:
         input_dir: str,
         output_dir: str,
         player_boxes: Any,
-        minimap_size: tuple = (160, 80),
-        position: tuple = (20, 20)
+        minimap_size: tuple = (320, 280),
+        position: tuple = (1500, 20)
     ):
         """
         Initialize the MinimapPostProcessor.
@@ -62,20 +62,38 @@ class MinimapPostProcessor:
             'failed_videos': 0
         }
         
-        for video_file in video_files:
-            try:
-                output_path = self.output_dir / f"{video_file.stem}_with_minimap.mp4"
-                self.process_single_video(video_file, output_path)
-                stats['processed_videos'] += 1
-                
-                if progress_callback:
-                    progress_callback()
+        if video_files:  # If there are any videos
+                #Here we are just taking the first point detected
+                try:
+                    video_file = video_files[0]  # Take just the first one
+                    output_path = self.output_dir / f"{video_file.stem}_with_minimap.mp4"
+                    self.process_single_video(video_file, output_path)
+                    stats['processed_videos'] += 1
                     
-            except Exception as e:
-                self.logger.error(f"Failed to process {video_file}: {str(e)}")
-                stats['failed_videos'] += 1
-                
+                    if progress_callback:
+                        progress_callback()
+                        
+                except Exception as e:
+                    self.logger.error(f"Failed to process {video_file}: {str(e)}")
+                    stats['failed_videos'] += 1
+            
         return stats
+        ##Code to process all the videos
+
+        # for video_file in video_files:
+        #     try:
+        #         output_path = self.output_dir / f"{video_file.stem}_with_minimap.mp4"
+        #         self.process_single_video(video_file, output_path)
+        #         stats['processed_videos'] += 1
+                
+        #         if progress_callback:
+        #             progress_callback()
+                    
+        #     except Exception as e:
+        #         self.logger.error(f"Failed to process {video_file}: {str(e)}")
+        #         stats['failed_videos'] += 1
+                
+        # return stats    
     
     def process_single_video(self, input_path: Path, output_path: Path) -> None:
         """
@@ -108,9 +126,86 @@ class MinimapPostProcessor:
                 player_boxes_r = self.player_boxes[i]
             else:
                 player_boxes_r = []
+            ##
+            for box in player_boxes_r:
+                x = box[0]  # x coordinate
+                y = box[1]  # y coordinate
+                w = box[2]  # width
+                h = box[3]  # height
+                player_class = box[5]  # player class (0 or 1)
+
+                # Calculate and draw bottom center point
+                center_x = int(x + w//2)
+                center_y = int(y+h)  # Using top y
+                cv2.circle(frame, (center_x-50, center_y-100), 5, (255, 0, 0), -1)
+        
+            #Hard code cordinates frame 0
+            # 74, 76, 173, 175
+            # Point 74: (282, 840)
+            # Point 76: (1333, 828)
+            # Point 173: (513, 288)
+            # Point 175: (1098, 286)
+
+            Hard_code_cords = [
+                (513, 288),    # Top left to match (215, 52)
+                (1098, 286),   # Top right to match (385, 52)
+                (282, 840),    # Bottom left to match (215, 548)
+                (1333, 828)    # Bottom right to match (385, 548)
+            ]
+            if i == 0:
+                orig_cords = Hard_code_cords
+            else:
+                _, white_edges = self.projector.detect_court_edges(frame)
+                _, corner_coords = self.projector.process_court_corners(white_edges, frame)
+                if corner_coords is not None:
+                    next_cords = []
+                    for cord in orig_cords: 
+                        k = self.projector.nearest_point(cord, corner_coords)
+                        next_cords.append(corner_coords[k])
+                    orig_cords = next_cords
+
+            #Draw corners in frame
+            for point in orig_cords:
+                cv2.circle(frame, (int(point[0]), int(point[1])), 5, (0,0,255), -1)
+
+            ####################################
+            #Classification of points from first frame
+
+            #     # Draw all coordinates to get points of interest
+            #     if corner_coords is not None:
+            #         for idx, coord in enumerate(corner_coords):
+            #             x, y = coord
+            #             # Draw circle at coordinate
+            #             cv2.circle(debug_frame, (int(x), int(y)), 5, (0, 0, 255), -1)
+            #             # Add coordinate number
+            #             cv2.putText(debug_frame, str(idx), (int(x)+10, int(y)+10), 
+            #                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            #     cv2.imwrite('frame_0_coords.jpg', debug_frame)
+
+
+            #     # Check points of interest
+            #     cv2.imwrite('frame_1_coords.jpg', debug_frame)
+            #     if i == 0:
+            #         print("Frame 0 corners:", corner_coords)
+            #         points_of_interest = [74, 76, 173, 175]
+            #         print("\nCoordinates for points of interest:")
+            #         for idx in points_of_interest:
+            #             if idx < len(corner_coords):
+            #                 print(f"Point {idx}: {corner_coords[idx]}")
+            #         debug_frame = frame.copy()
+
+        ##############################################################################
+
+            homography = self.projector.calculate_homography(orig_cords, None)
+
+            ##When homography is None
+            if homography is None:
+                frame_with_minimap = cv2.resize(frame, self.projector.minimap_size)
+            #Add_minimap does the projection
             frame_with_minimap = self.projector.add_minimap(
                 frame.copy(),
-                player_boxes_r
+                player_boxes_r,
+                homography
             )
             
             out.write(frame_with_minimap)
