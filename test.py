@@ -12,7 +12,7 @@ from complete_pipeline import process_complete
 
 # Usar el proceso
 summary = process_complete(
-    video_url= None,#"https://www.youtube.com/watch?v=FBVi4wLxotU", #"https://www.youtube.com/watch?v=6I06-ITW88k",
+    video_url="https://www.youtube.com/watch?v=FBVi4wLxotU",
     output_dir="examples/output",
     model_players_path="models/players/best.pt",
     model_ball_path="models/ball/best.pt",

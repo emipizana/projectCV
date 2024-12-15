@@ -57,10 +57,10 @@ class CourtProjector:
         self.court_base = cv2.resize(self.court_base, minimap_size)
         #########
         #Print
-        minimap_example = self.court_base.copy()
-        for point in self.scaled_coords:
-            cv2.circle(minimap_example, point, 5, (0,0,255), -1)
-        cv2.imwrite("scaled_diagram_coords.png", minimap_example)
+        #minimap_example = self.court_base.copy()
+        #for point in self.scaled_coords:
+        #    cv2.circle(minimap_example, point, 5, (0,0,255), -1)
+        #cv2.imwrite("scaled_diagram_coords.png", minimap_example)
 
         #################
 
@@ -241,6 +241,10 @@ class CourtProjector:
             """Transform a 2D point using the homography matrix."""
             p = np.array([[point[0]], [point[1]], [1]])  # Convert point to homogeneous coordinates
             p_transformed = H @ p  # Apply the homography
+            
+            if abs(p_transformed[2][0]) < 1e-6: 
+                return (0, 0) 
+            
             x = int(p_transformed[0][0] / p_transformed[2][0])  # Normalize to get the 2D coordinates
             y = int(p_transformed[1][0] / p_transformed[2][0])
             return (x, y)
