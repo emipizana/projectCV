@@ -118,14 +118,6 @@ tennis_analysis/
 └── examples/               # Usage examples
 ```
 
-## 📊 Output
-
-The framework generates:
-1. **Points Directory**: Individual video clips for each tennis point
-2. **Tracked Points**: Processed videos with ball and player tracking visualization
-3. **Analysis Data**: JSON files containing tracking data and statistics
-4. **Visualizations**: Optional plotting of trajectories and statistics
-
 ## 🔧 Pipeline Steps
 
 1. **Download**: Downloads the tennis match video, optionally selecting a specific segment
@@ -168,5 +160,4 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 - YOLO model architecture for object detection
 - Tennis match datasets used for training (Roboflow)
-- Community contributions and feedback
 
