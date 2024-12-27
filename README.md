@@ -136,7 +136,11 @@ The framework generates:
    - Tracks the ball using YOLO with trajectory prediction
    - Tracks and identifies players
    - Handles occlusions and missed detections
-4. **Postprocessing**:
+4. **Projector**:
+   - Edge detection for the dimension of the tennis courts.
+   - Uses the players positions to project them in mini-map.
+   - Generates a mini-map in the video.
+5. **Postprocessing**:
    - Generates visualization overlays
    - Creates analysis summaries
    - Exports processed videos
