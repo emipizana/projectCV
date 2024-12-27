@@ -110,6 +110,7 @@ tennis_analysis/
 │       ├── downloader/      # Video downloading
 │       ├── preprocessor/    # Point segmentation
 │       ├── tracking/        # Ball and player tracking
+│       ├── projector/       # Court Projector of minimap
 │       └── postprocessing/  # Visualization
 ├── models/                  # Pre-trained models
 ├── examples/               # Usage examples
@@ -158,9 +159,6 @@ Key configurations can be modified in the respective config files:
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -170,13 +168,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact
 
-For questions and support, please open an issue on the GitHub repository or contact [your-email@example.com].
+For questions and support, please open an issue on the GitHub repository or contact [emipizanaa@gmai.com].
 
 ## 🚧 Known Issues & Limitations
 
 - Requires good video quality for optimal tracking
 - Performance may vary with different court types
 - Specific lighting conditions might affect tracking accuracy
+- Work with the first frame to get the cordinates from the tennis court to use it in homography.
 
 ## 🗺 Roadmap
 
