@@ -121,7 +121,7 @@ tennis_analysis/
 
 The framework generates:
 1. **Points Directory**: Individual video clips for each tennis point
-2. **Tracked Points**: Processed videos with ball and player tracking visualization
+2. **Post-processed Points**: Processed videos with ball, player tracking and mini-map visualization
 3. **Analysis Data**: JSON files containing tracking data and statistics
 4. **Visualizations**: Optional plotting of trajectories and statistics
 
